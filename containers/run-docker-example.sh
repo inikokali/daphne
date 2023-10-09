@@ -29,6 +29,8 @@ USE_SUDO=
 # run this script from the base path of your DAPHNE source tree
 DAPHNE_ROOT=$PWD
 
+DAPHNE_ROOT_MOUNT=/home/vasiliki/daphne
+
 # the directory used *inside* the container to bind-mount your source directory
 DAPHNE_ROOT_CONTAINER=/daphne
 
@@ -62,7 +64,7 @@ fi
 
 # for interactive use:
 $USE_SUDO docker run $DEBUG_FLAGS $DEVICE_FLAGS -it --rm --hostname daphne-container -w $DAPHNE_ROOT_CONTAINER \
-    -v "$DAPHNE_ROOT:$DAPHNE_ROOT_CONTAINER" -e GID=$GID -e TERM=screen-256color -e PATH -e LD_LIBRARY_PATH \
+    -v "$DAPHNE_ROOT_MOUNT:$DAPHNE_ROOT_CONTAINER" -e GID=$GID -e TERM=screen-256color -e PATH -e LD_LIBRARY_PATH \
     -e USER=$USERNAME -e UID=$UID \
     "$DOCKER_IMAGE:$DOCKER_TAG" $command
 

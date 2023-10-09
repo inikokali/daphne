@@ -53,7 +53,7 @@ void ewBinaryObjSca(BinaryOpCode opCode, DTRes *& res, const DTLhs * lhs, VTRhs 
 // ****************************************************************************
 
 // ----------------------------------------------------------------------------
-// DenseMatrix <- DenseMatrix, scalar
+// DenseMatrix <- DenseMatrix, scalar 
 // ----------------------------------------------------------------------------
 
 template<typename VT>
@@ -78,6 +78,102 @@ struct EwBinaryObjSca<DenseMatrix<VT>, DenseMatrix<VT>, VT> {
         }
     }
 };
+
+// ---------------------------- New code -------------------------------------
+
+// ----------------------------------------------------------------------------
+// DenseMatrix<double> <- DenseMatrix<double/int64_t>, scalar double/int64_t
+// ----------------------------------------------------------------------------
+// template<typename VT1, typename VT2>
+// struct EwBinaryObjSca<DenseMatrix<double>, DenseMatrix<VT1>, VT2> {
+//     static void apply(BinaryOpCode opCode, DenseMatrix<double> *& res, const DenseMatrix<VT1> * lhs, VT2 rhs, DCTX(ctx)) {
+//         const size_t numRows = lhs->getNumRows();
+//         const size_t numCols = lhs->getNumCols();
+
+//         // If the result matrix is not allocated, create it
+//         if(res == nullptr)
+//             res = DataObjectFactory::create<DenseMatrix<double>>(numRows, numCols, false);
+
+//         // Get pointers to the values of the lhs matrix and the result matrix
+//         const VT1 * valuesLhs = lhs->getValues();
+//         double * valuesRes = res->getValues();
+
+//         // Get the function pointer for the element-wise binary operation
+//         EwBinaryScaFuncPtr<double, VT1, VT2> func = getEwBinaryScaFuncPtr<double, VT1, VT2>(opCode);
+
+//         // Perform the element-wise operation for each element in the matrices
+//         for(size_t r = 0; r < numRows; r++) {
+//             for(size_t c = 0; c < numCols; c++)
+//                 valuesRes[c] = func(static_cast<double>(valuesLhs[c]), static_cast<double>(rhs), ctx); // Cast valuesLhs[c] to double
+//             valuesLhs += lhs->getRowSkip();
+//             valuesRes += res->getRowSkip();
+//         }
+
+//     }     
+// };
+
+
+template<>
+struct EwBinaryObjSca<DenseMatrix<double>, DenseMatrix<double>, int64_t> {
+    static void apply(BinaryOpCode opCode, DenseMatrix<double> *& res, const DenseMatrix<double> * lhs, int64_t rhs, DCTX(ctx)) {
+        const size_t numRows = lhs->getNumRows();
+        const size_t numCols = lhs->getNumCols();
+        
+        // If the result matrix is not allocated, create it
+        if(res == nullptr)
+            res = DataObjectFactory::create<DenseMatrix<double>>(numRows, numCols, false);
+        
+        // Get pointers to the values of the lhs matrix and the result matrix
+        const double * valuesLhs = lhs->getValues();
+        double * valuesRes = res->getValues();
+        
+        // Get the function pointer for the element-wise binary operation
+        EwBinaryScaFuncPtr<double, double, int64_t> func = getEwBinaryScaFuncPtr<double, double, int64_t>(opCode);
+        
+        // Perform the element-wise operation for each element in the matrices
+        for(size_t r = 0; r < numRows; r++) {
+            for(size_t c = 0; c < numCols; c++)
+                valuesRes[c] = func(valuesLhs[c], static_cast<double>(rhs), ctx); // Cast rhs to double
+            valuesLhs += lhs->getRowSkip();
+            valuesRes += res->getRowSkip();
+        }
+    }
+};
+
+// ----------------------------------------------------------------------------
+// DenseMatrix<double> <- DenseMatrix<int_64t>, scalar double
+// ----------------------------------------------------------------------------
+
+
+template<>
+struct EwBinaryObjSca<DenseMatrix<double>, DenseMatrix<int64_t>, double> {
+    static void apply(BinaryOpCode opCode, DenseMatrix<double> *& res, const DenseMatrix<int64_t> * lhs, double rhs, DCTX(ctx)) {
+        const size_t numRows = lhs->getNumRows();
+        const size_t numCols = lhs->getNumCols();
+        
+        // If the result matrix is not allocated, create it
+        if(res == nullptr)
+            res = DataObjectFactory::create<DenseMatrix<double>>(numRows, numCols, false);
+        
+        // Get pointers to the values of the lhs matrix and the result matrix
+        const int64_t * valuesLhs = lhs->getValues();
+        double * valuesRes = res->getValues();
+        
+        // Get the function pointer for the element-wise binary operation
+        EwBinaryScaFuncPtr<double, int64_t, double> func = getEwBinaryScaFuncPtr<double, int64_t, double>(opCode);
+        
+        // Perform the element-wise operation for each element in the matrices
+        for(size_t r = 0; r < numRows; r++) {
+            for(size_t c = 0; c < numCols; c++)
+                valuesRes[c] = func(static_cast<double>(valuesLhs[c]), rhs, ctx); // Cast valuesLhs[c] to double
+            valuesLhs += lhs->getRowSkip();
+            valuesRes += res->getRowSkip();
+        }
+    }
+};
+
+
+// ------------------------ End of New code -----------------------------------
 
 // ----------------------------------------------------------------------------
 // Matrix <- Matrix, scalar

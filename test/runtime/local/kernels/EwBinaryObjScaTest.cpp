@@ -44,6 +44,49 @@ void checkEwBinaryMatSca(BinaryOpCode opCode, const DT * lhs, typename DT::VT rh
     DataObjectFactory::destroy(res);
 }
 
+
+template<typename DT>
+void checkEwBinaryMatSca2(BinaryOpCode opCode, const DT* lhs, double rhs, const DenseMatrix<double>* exp) {
+    // Specialization for specific types
+    DenseMatrix<double>* res = nullptr;
+    ewBinaryObjSca<DenseMatrix<double>, DT, double>(opCode, res, lhs, rhs, nullptr);
+    CHECK(*res == *exp);
+    DataObjectFactory::destroy(res);
+}
+
+template<typename DT>
+void checkEwBinaryMatSca3(BinaryOpCode opCode, const DT* lhs, int64_t rhs, const DenseMatrix<double>* exp) {
+    // Specialization for specific types
+    DenseMatrix<double>* res = nullptr;
+    ewBinaryObjSca<DenseMatrix<double>, DT, int64_t>(opCode, res, lhs, rhs, nullptr);
+    CHECK(*res == *exp);
+    DataObjectFactory::destroy(res);
+}
+
+// template<>
+// void checkEwBinaryMatSca2(BinaryOpCode opCode, const DenseMatrix<int64_t> * lhs, double rhs, const DenseMatrix<double> * exp) {
+//     DenseMatrix<double> * res = nullptr;
+//     ewBinaryObjSca<DenseMatrix<double>, DenseMatrix<int64_t>, double>(opCode, res, lhs, rhs, nullptr);
+//     CHECK(*res == *exp);
+//     DataObjectFactory::destroy(res);
+// }
+
+// template<>
+// void checkEwBinaryMatSca3(BinaryOpCode opCode, const DenseMatrix<double> * lhs, int64_t rhs, const DenseMatrix<double> * exp) {
+//     DenseMatrix<double> * res = nullptr;
+//     ewBinaryObjSca<DenseMatrix<double>, DenseMatrix<double>, int64_t>(opCode, res, lhs, rhs, nullptr);
+//     CHECK(*res == *exp);
+//     DataObjectFactory::destroy(res);
+// }
+
+// template<class DT, typename ScalarType>
+// void checkEwBinaryMatSca3(BinaryOpCode opCode, const DT * lhs, ScalarType rhs, const DT * exp) {
+//     DT * res = nullptr;
+//     ewBinaryObjSca<DT, DT, ScalarType>(opCode, res, lhs, rhs, nullptr);
+//     CHECK(*res == *exp);
+//     DataObjectFactory::destroy(res);
+// }
+
 template<class DT, typename VT>
 void checkEwBinaryFrameSca(BinaryOpCode opCode, const DT * lhs, VT rhs, const DT * exp) {
     DT * res = nullptr;
@@ -83,7 +126,7 @@ TEMPLATE_PRODUCT_TEST_CASE(TEST_NAME("add"), TAG_KERNELS, (DATA_TYPES), (VALUE_T
         checkEwBinaryMatSca(BinaryOpCode::ADD, m0, 0, m0);
         checkEwBinaryMatSca(BinaryOpCode::ADD, m1, 0, m1);
         checkEwBinaryMatSca(BinaryOpCode::ADD, m1, 1, m2);
-    }   
+    }
     SECTION("frame") {
         Frame * f0 = nullptr;
         castObj<Frame, DT>(f0, m0, nullptr);
@@ -520,4 +563,123 @@ TEMPLATE_PRODUCT_TEST_CASE(TEST_NAME("some invalid op-code"), TAG_KERNELS, (DATA
     DT * res = nullptr;
     auto m = genGivenVals<DT>(1, {1});
     CHECK_THROWS(ewBinaryObjSca<DT, DT, typename DT::VT>(static_cast<BinaryOpCode>(999), res, m, 1, nullptr));
+}
+
+TEMPLATE_PRODUCT_TEST_CASE(TEST_NAME("add_diff_types"), TAG_KERNELS, (DenseMatrix), (int64_t, double)) {
+    // using DT = TestType;
+    // using VT = typename DT::VT;
+    
+    auto m0 = genGivenVals<DenseMatrix<int64_t>>(4, {
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+    });
+    auto m1 = genGivenVals<DenseMatrix<int64_t>>(4, {
+            1, 2, 0, 0, 1, 3,
+            0, 1, 0, 2, 0, 3,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+    });
+    auto m2 = genGivenVals<DenseMatrix<int64_t>>(4, {
+            2, 3, 1, 1, 2, 4,
+            1, 2, 1, 3, 1, 4,
+            1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1,
+    });
+
+    auto m0_double = genGivenVals<DenseMatrix<double>>(4, {
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    });
+    auto m1_double = genGivenVals<DenseMatrix<double>>(4, {
+        1.0, 2.0, 0.0, 0.0, 1.0, 3.0,
+        0.0, 1.0, 0.0, 2.0, 0.0, 3.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    });
+    auto m2_double = genGivenVals<DenseMatrix<double>>(4, {
+        2.0, 3.0, 1.0, 1.0, 2.0, 4.0,
+        1.0, 2.0, 1.0, 3.0, 1.0, 4.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    });
+
+    SECTION("matrix") {
+        checkEwBinaryMatSca2(BinaryOpCode::ADD, m0, 0.0, m0_double);
+        checkEwBinaryMatSca2(BinaryOpCode::ADD, m1, 0.0, m1_double);
+        checkEwBinaryMatSca2(BinaryOpCode::ADD, m1, 1.0, m2_double);
+
+        // Test the second specialization
+        checkEwBinaryMatSca3(BinaryOpCode::ADD, m0_double,  0, m0_double);
+        checkEwBinaryMatSca3(BinaryOpCode::ADD, m1_double,  0, m1_double);
+        checkEwBinaryMatSca3(BinaryOpCode::ADD, m1_double,  1, m2_double);
+    }
+
+    DataObjectFactory::destroy(m0);
+    DataObjectFactory::destroy(m1);
+    DataObjectFactory::destroy(m2);
+    DataObjectFactory::destroy(m0_double);
+    DataObjectFactory::destroy(m1_double);
+    DataObjectFactory::destroy(m2_double);
+}
+
+
+TEMPLATE_PRODUCT_TEST_CASE(TEST_NAME("mul_diff_types"), TAG_KERNELS, (DATA_TYPES), (VALUE_TYPES)) {
+
+    auto m0 = genGivenVals<DenseMatrix<int64_t>>(4, {
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+    });
+    auto m1 = genGivenVals<DenseMatrix<int64_t>>(4, {
+            1, 2, 0, 0, 1, 3,
+            0, 1, 0, 2, 0, 3,
+            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+    }); 
+    // auto m2 = genGivenVals<DenseMatrix<int64_t>>(4, {
+    //         2, 4, 0, 0, 2, 6,
+    //         0, 2, 0, 4, 0, 6,
+    //         0, 0, 0, 0, 0, 0,
+    //         0, 0, 0, 0, 0, 0,
+    // });
+
+    auto m0_double = genGivenVals<DenseMatrix<double>>(4, {
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    });
+    auto m1_double = genGivenVals<DenseMatrix<double>>(4, {
+            1.0, 2.0, 0.0, 0.0, 1.0, 3.0,
+            0.0, 1.0, 0.0, 2.0, 0.0, 3.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    }); 
+    auto m2_double = genGivenVals<DenseMatrix<double>>(4, {
+            2.0, 4.0, 0.0, 0.0, 2.0, 6.0,
+            0.0, 2.0, 0.0, 4.0, 0.0, 6.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    });
+    
+    SECTION("matrix") {
+        checkEwBinaryMatSca2(BinaryOpCode::MUL, m0, 0.0, m0_double);
+        checkEwBinaryMatSca2(BinaryOpCode::MUL, m1, 0.0, m0_double);
+        checkEwBinaryMatSca2(BinaryOpCode::MUL, m1, 2.0, m2_double);
+        checkEwBinaryMatSca3(BinaryOpCode::MUL, m0_double, 0, m0_double);
+        checkEwBinaryMatSca3(BinaryOpCode::MUL, m1_double, 0, m0_double);
+        checkEwBinaryMatSca3(BinaryOpCode::MUL, m1_double, 2, m2_double);
+    }   
+
+    DataObjectFactory::destroy(m0);
+    DataObjectFactory::destroy(m1);
+    // DataObjectFactory::destroy(m2);
+    DataObjectFactory::destroy(m0_double);
+    DataObjectFactory::destroy(m1_double);
+    DataObjectFactory::destroy(m2_double);
 }
