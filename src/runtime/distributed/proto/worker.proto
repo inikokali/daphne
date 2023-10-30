@@ -25,7 +25,7 @@ import "data.proto";
 service Worker {
   rpc Store (stream Data) returns (StoredData) {}
   rpc Compute (Task) returns (ComputeResult) {}
-  rpc Transfer (StoredData) returns (Data) {}
+  rpc Transfer (StoredData) returns (stream Data) {}
   rpc FreeMem (StoredData) returns (Empty) {}
 }
 

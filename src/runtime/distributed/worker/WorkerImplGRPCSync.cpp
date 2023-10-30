@@ -124,3 +124,137 @@ grpc::Status WorkerImplGRPCSync::Transfer(::grpc::ServerContext *context,
     response->set_bytes(buffer.data(), bufferLength);
     return ::grpc::Status::OK;
 }
+
+
+grpc::Status WorkerImplGRPCSync::Transfer(::grpc::ServerContext* context,
+                                          const ::distributed::StoredData* request,
+                                          ::grpc::ServerWriter< ::distributed::Data>* writer)
+{
+    StoredInfo info({request->identifier(), request->num_rows(), request->num_cols()});
+    std::vector<char> buffer;
+    size_t bufferLength;
+    Structure *mat = WorkerImpl::Transfer(info);
+    bufferLength = DaphneSerializer<Structure>::serialize(mat, buffer);
+    response->set_bytes(buffer.data(), bufferLength);
+    return ::grpc::Status::OK;
+}
+
+
+
+grpc::Status WorkerImplGRPCSync::Transfer(::grpc::ServerContext* context,
+                                          const ::distributed::StoredData* request,
+                                          ::grpc::ServerWriter< ::distributed::Data>* writer) {
+    StoredInfo info({request->identifier(), request->num_rows(), request->num_cols()});
+    Structure* mat = WorkerImpl::Transfer(info);
+
+    // Perform serialization in chunks
+    std::vector<char> buffer;
+    size_t bufferLength;
+    size_t serializeFromByte = 0;
+    const size_t chunkSize = DaphneSerializer<Structure>::DEFAULT_SERIALIZATION_BUFFER_SIZE; // Define your chunk size
+
+    do {
+        bufferLength = DaphneSerializer<Structure>::serialize(mat, buffer, chunkSize, serializeFromByte);
+        
+        // Send the serialized chunk of data
+        ::distributed::Data response;
+        response.set_bytes(buffer.data(), bufferLength);
+        writer->Write(response);
+
+        serializeFromByte += bufferLength;
+    } while (bufferLength > 0);
+
+    return ::grpc::Status::OK;
+}
+
+grpc::Status WorkerImplGRPCSync::Transfer(::grpc::ServerContext* context,
+                          const ::distributed::StoredData* request,
+                          ::grpc::ServerWriter< ::distributed::Data>* writer)
+{
+    StoredInfo info({request->identifier(), request->num_rows(), request->num_cols()});
+    Structure* mat = WorkerImpl::Transfer(info);
+
+    // TODO: Determine an appropriate chunk size.
+    // For instance, let's use a random chunk size (for instance, 100 elements).
+    const int chunkSize = 4096;
+
+    // Serialize the 'mat' structure to be sent in chunks.
+    std::vector<char> buffer;
+    auto serializer = DaphneSerializerChunks<DT>(mat, chunkSize);
+
+
+    for (size_t i = 0; i < serializer.size(); i += chunkSize) {
+        size_t remaining = std::min(chunkSize, serializer.size() - i);
+        buffer.clear();
+        serializer.serializeChunk(i, remaining, buffer);  // Serialize a chunk of data.
+
+        // Prepare and send the chunk to the coordinator.
+        ::distributed::Data data;
+        data.set_bytes(buffer.data(), buffer.size());
+        writer->Write(data);
+    }
+
+    // Signal the end of the stream.
+    writer->Finish();
+
+    return ::grpc::Status::OK;
+}
+
+grpc::Status WorkerImplGRPCSync::Transfer(::grpc::ServerContext *context,
+                      const ::distributed::StoredData *request,
+                      ::grpc::ServerWriter< ::distributed::Data>* writer)
+{
+    StoredInfo info({request->identifier(), request->num_rows(), request->num_cols()});
+    Structure *mat = WorkerImpl::Transfer(info);
+
+    // Assuming DaphneSerializer<Structure>::serializeChunk() serializes individual chunks.
+    // Serialize and send chunks one by one
+    for (/* iterate through chunks or individual data elements */) {
+        std::vector<char> buffer;
+        size_t bufferLength;
+        // Serialize the current chunk or data element
+        bufferLength = DaphneSerializer<Structure>::serializeChunk(currentChunk, buffer);
+
+        // Prepare the Data message with serialized chunk/data
+        ::distributed::Data data;
+        data.set_bytes(buffer.data(), bufferLength);
+
+        // Write the data to the stream
+        if (!writer->Write(data)) {
+            // Handle a failure to write, if required
+            return ::grpc::Status(::grpc::StatusCode::INTERNAL, "Failed to send data.");
+        }
+    }
+
+    // Indicate the completion of sending data
+    writer->WritesDone();
+
+    return ::grpc::Status::OK;
+}
+
+grpc::Status WorkerImplGRPCSync::Transfer(::grpc::ServerContext* context,
+                                         const ::distributed::StoredData* request,
+                                         ::grpc::ServerWriter< ::distributed::Data>* writer) {
+    StoredInfo info({request->identifier(), request->num_rows(), request->num_cols()});
+    Structure* mat = WorkerImpl::Transfer(info);
+
+    // Split the data into chunks and serialize them
+    std::vector<char> buffer;
+    size_t chunkSize = 2048
+    size_t totalSize = DaphneSerializer<Structure>::size(mat);
+
+    for (size_t offset = 0; offset < totalSize; offset += chunkSize) {
+        size_t remainingSize = std::min(chunkSize, totalSize - offset);
+        buffer.clear();
+
+        // Serialize a chunk of data
+        DaphneSerializer<Structure>::serializeChunk(mat, offset, remainingSize, buffer);
+
+        // Create a Data message for the chunk and send it
+        distributed::Data data;
+        data.set_bytes(buffer.data(), buffer.size());
+        writer->Write(data);
+    }
+
+    return ::grpc::Status::OK;
+}
