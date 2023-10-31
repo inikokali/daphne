@@ -275,12 +275,16 @@ struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
                 // std::unique_ptr<grpc::ClientReader<distributed::Data>> reader=stub->Transfer(&grpc_ctx, protoData));
                 
                 // Initialize variables for receiving and storing the chunks
-                Structure* mat = nullptr; // Replace 'Structure' with the appropriate data type
+                Structure* mat = nullptr; 
                 distributed::Data matProto;
+
+                // receive streamed data from transfer
                 auto reader=stub->Transfer(&grpc_ctx, protoData, &matProto);
                 reader->Read(&matProto);
-                auto buffer = matProto.bytes().data();
-                auto len = matProto.bytes().size();
+
+
+                auto buffer = matProto.bytes().data(); //pointer to the data (?)
+                auto len = matProto.bytes().size(); // size of the data in bytes
 
                 auto denseMat = dynamic_cast<DenseMatrix<double>*>(mat);
                 if (!denseMat){
@@ -289,7 +293,7 @@ struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
                     
                 // Handle single value case
                 if (DF_Dtype(buffer) == DF_data_t::Value_t) {
-                    std::vector<char> buf(static_cast<const char*>(matProto.bytes().data()), static_cast<const char*>(matProto.bytes().data()) + matProto.bytes().size()); 
+                    std::vector<char> buf(static_cast<const char*>(buffer), static_cast<const char*>(buffer) + len); 
                     auto slicedMat = dynamic_cast<DenseMatrix<double>*>(DF_deserialize(buf));
                     auto resValues = denseMat->getValues() + (dp->range->r_start * denseMat->getRowSkip());
                     auto slicedMatValues = slicedMat->getValues();
