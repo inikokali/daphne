@@ -533,3 +533,4 @@ struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
 // data placements
 // Structure parameters
 // distributedData
+//testcommit
