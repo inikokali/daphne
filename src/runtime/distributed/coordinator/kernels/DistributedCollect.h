@@ -245,6 +245,240 @@ struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_ASYNC, DT>
 // };
 
 
+// template<class DT>
+// struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
+// {
+//     static void apply(DT *&mat, DCTX(dctx)) 
+//     {
+//         assert(mat != nullptr && "Result matrix must be allocated by the wrapper since only there exists information regarding size.");        
+
+//         auto ctx = DistributedContext::get(dctx);
+//         std::vector<std::thread> threads_vector;
+
+//         auto dpVector = mat->getMetaDataObject()->getDataPlacementByType(ALLOCATION_TYPE::DIST_GRPC);
+//         for (auto &dp : *dpVector) {
+//             auto address = dp->allocation->getLocation();
+            
+//             auto distributedData = dynamic_cast<AllocationDescriptorGRPC&>(*(dp->allocation)).getDistributedData();            
+//             distributed::StoredData protoData;
+//             protoData.set_identifier(distributedData.identifier);
+//             protoData.set_num_rows(distributedData.numRows);
+//             protoData.set_num_cols(distributedData.numCols);
+
+        
+            
+//             std::thread t([address, dp = dp.get(), protoData, distributedData, &mat, &ctx]() mutable
+//             {
+//                 auto stub = ctx->stubs[address].get();
+
+//                 // Request the data from the worker in chunks
+//                 // std::unique_ptr<grpc::ClientReader<distributed::Data>> reader=stub->Transfer(&grpc_ctx, protoData));
+                
+//                 // Initialize variables for receiving and storing the chunks
+//                 Structure* mat = nullptr; 
+//                 distributed::Data matProto;
+
+//                 // receive streamed data from transfer
+//                 auto reader=stub->Transfer(&grpc_ctx, protoData, &matProto);
+//                 reader->Read(&matProto);
+
+
+//                 auto buffer = matProto.bytes().data(); //pointer to the data (?)
+//                 auto len = matProto.bytes().size(); // size of the data in bytes
+
+//                 auto denseMat = dynamic_cast<DenseMatrix<double>*>(mat);
+//                 if (!denseMat){
+//                     throw std::runtime_error("Distribute grpc only supports DenseMatrix<double> for now");
+//                 }
+                    
+//                 // Handle single value case
+//                 if (DF_Dtype(buffer) == DF_data_t::Value_t) {
+//                      // Throw a runtime error as the coordinator expects data in chunks and not single values
+//                     throw std::runtime_error("Invalid data type.");
+//                 } else {  //handle chunks
+//                     // Initialize deserializer for chunks
+//                     deserializer.reset(new DaphneDeserializerChunks<Structure>(&mat, len));
+//                     deserializerIter.reset(new DaphneDeserializerChunks<Structure>::Iterator(deserializer->begin()));
+                
+                
+//                     // Store the chunks
+//                     (*deserializerIter)->second->resize(len);
+//                     (*deserializerIter)->first = len;
+                    
+//                     if ((*deserializerIter)->second->size() < len)
+//                         (*deserializerIter)->second->resize(len);
+//                     (*deserializerIter)->second->assign(static_cast<const char*>(buffer), static_cast<const char*>(buffer) + len);
+                    
+//                     // Advance the iterator, this partially deserializes
+//                     ++(*deserializerIter);
+                    
+//                     while (reader->Read(&data)){
+//                         (*deserializerIter)->first = len;
+//                         if ((*deserializerIter)->second->size() < len)
+//                             (*deserializerIter)->second->resize(len);
+//                         (*deserializerIter)->second->assign(static_cast<const char*>(buffer), static_cast<const char*>(buffer) + len);
+                        
+//                         // advance iterator, this also partially deserializes
+//                         ++(*deserializerIter);
+                        
+//                     }
+//                 }
+//             });
+//             threads_vector.push_back(std::move(t));
+//         }
+//         for (auto &thread : threads_vector)
+//             thread.join();
+//     };
+// };
+
+// template<class DT>
+// struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
+// {
+//     static void apply(DT *&mat, DCTX(dctx)) 
+//     {
+//         assert(mat != nullptr && "Result matrix must be allocated by the wrapper since only there exists information regarding size.");        
+
+//         auto ctx = DistributedContext::get(dctx);
+//         std::vector<std::thread> threads_vector;
+
+//         auto dpVector = mat->getMetaDataObject()->getDataPlacementByType(ALLOCATION_TYPE::DIST_GRPC);
+//         for (auto &dp : *dpVector) {
+//             auto address = dp->allocation->getLocation();
+            
+//             auto distributedData = dynamic_cast<AllocationDescriptorGRPC&>(*(dp->allocation)).getDistributedData();            
+//             distributed::StoredData protoData;
+//             protoData.set_identifier(distributedData.identifier);
+//             protoData.set_num_rows(distributedData.numRows);
+//             protoData.set_num_cols(distributedData.numCols);
+
+//             std::thread t([address, dp = dp.get(), protoData, distributedData, &mat, &ctx]() mutable {
+//                 auto stub = ctx->stubs[address].get();
+
+//                 Structure* temp_mat = nullptr;
+
+//                 auto reader = stub->Transfer(&grpc_ctx, protoData);
+
+//                 std::vector<std::pair<size_t, std::shared_ptr<std::vector<char>>>> receivedChunks;
+
+//                 distributed::Data data;
+//                 while (reader->Read(&data)) {
+//                     auto buffer = data.bytes().data();
+//                     auto len = data.bytes().size();
+
+//                     if (DF_Dtype(buffer) == DF_data_t::Value_t) {
+//                         throw std::runtime_error("Invalid data type.");
+//                     } else {
+//                         if (temp_mat == nullptr) {
+//                             // Replace 'Structure' constructor with your appropriate constructor parameters
+//                             temp_mat = new Structure(distributedData.numRows, distributedData.numCols);
+//                         }
+
+//                         receivedChunks.emplace_back(len, std::make_shared<std::vector<char>>(buffer, buffer + len));
+//                     }
+//                 }
+
+//                 if (temp_mat != nullptr) {
+//                     size_t totalBytes = 0;
+//                     for (const auto &chunk : receivedChunks) {
+//                         totalBytes += chunk.first;
+//                     }
+
+//                     std::vector<char> serializedData(totalBytes);
+
+//                     size_t offset = 0;
+//                     for (const auto &chunk : receivedChunks) {
+//                         memcpy(serializedData.data() + offset, chunk.second->data(), chunk.first);
+//                         offset += chunk.first;
+//                     }
+
+//                     // Assuming 'deserialize' is a method in the 'Structure' class
+//                     temp_mat->deserialize(serializedData); 
+
+//                     std::lock_guard<std::mutex> lock(mat->getMutex());
+//                     mat->update(temp_mat);
+//                     delete temp_mat;
+//                 }
+//             });
+//             threads_vector.push_back(std::move(t));
+//         }
+
+//         for (auto &thread : threads_vector)
+//             thread.join();
+//     };
+// };
+
+
+
+
+
+// std::vector<std::pair<size_t, std::shared_ptr<std::vector<char>>>> receivedChunks;
+
+// std::vector<char>* vec = new std::vector<char>(buffer, buffer + len);  // Create a new vector
+// std::shared_ptr<std::vector<char>> sharedVec(vec);  // Create a shared pointer to manage ownership
+
+// receivedChunks.push_back(std::make_pair(len, sharedVec));  // Add to the vector using push_back
+
+
+
+
+            // std::thread t([address, dp = dp.get(), protoData, distributedData, &mat, &ctx]() mutable
+            // {
+            //     auto stub = ctx->stubs[address].get();
+                
+            //     Structure* temp_mat = nullptr; // Define a temporary matrix to store chunks
+                
+            //     // Request the data from the worker in chunks
+            //     auto reader = stub->Transfer(&grpc_ctx, protoData);
+
+            //     // Vector to store received chunks
+            //     std::vector<std::pair<size_t, std::shared_ptr<std::vector<char>>>> receivedChunks;
+
+            //     distributed::Data data;
+            //     while (reader->Read(&data)) {
+            //         auto buffer = data.bytes().data(); // Pointer to the data
+            //         auto len = data.bytes().size(); // Size of the data in bytes
+
+            //         if (DF_Dtype(buffer) == DF_data_t::Value_t) {
+            //             // We do not expexct 
+            //             throw std::runtime_error("Invalid data type.");
+            //         } else {
+            //             if (temp_mat == nullptr) {
+            //                 temp_mat = new Structure(); // Initialize the temporary matrix if it's not created
+            //             }
+
+            //             // Store the received chunk and its size in the temporary matrix so as to deserialize them after
+            //             receivedChunks.emplace_back(len, std::make_shared<std::vector<char>>(buffer, buffer + len));
+            //         }
+            //     }
+
+            //     if (temp_mat != nullptr) {
+            //         // Reconstruct the matrix by concatenating received chunks
+            //         auto deserializer = new DaphneDeserializerChunks<Structure>(&temp_mat, receivedChunks.size());
+            //         auto deserializerIter = new DaphneDeserializerChunks<Structure>::Iterator(deserializer->begin());
+                    
+            //         size_t totalBytes = 0;
+            //         for (const auto &chunk : receivedChunks) {
+            //             totalBytes += chunk.first;
+            //         }
+
+            //         temp_mat->allocate(totalBytes); // Assuming this method reallocates the required memory
+
+            //         // Concatenate the received chunks into the temporary matrix
+            //         for (const auto &chunk : receivedChunks) {
+            //             memcpy(temp_mat->getData() + deserializerIter->first, chunk.second->data(), chunk.first);
+            //             ++deserializerIter;
+            //         }
+                    
+            //         // Lock the mat for thread-safe update
+            //         std::lock_guard<std::mutex> lock(mat->getMutex());
+            //         // Update the actual matrix
+            //         mat->update(temp_mat);
+            //         delete temp_mat; // Release the temporary matrix
+            //     }
+            // });
+
+
+// NEW CODE 
 template<class DT>
 struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
 {
@@ -265,95 +499,56 @@ struct DistributedCollect<ALLOCATION_TYPE::DIST_GRPC_SYNC, DT>
             protoData.set_num_rows(distributedData.numRows);
             protoData.set_num_cols(distributedData.numCols);
 
-        
-            
-            std::thread t([address, dp = dp.get(), protoData, distributedData, &mat, &ctx]() mutable
-            {
+            std::thread t([address, dp = dp.get(), protoData, distributedData, &mat, &ctx]() mutable {
                 auto stub = ctx->stubs[address].get();
 
-                // Request the data from the worker in chunks
-                // std::unique_ptr<grpc::ClientReader<distributed::Data>> reader=stub->Transfer(&grpc_ctx, protoData));
-                
-                // Initialize variables for receiving and storing the chunks
-                Structure* mat = nullptr; 
-                distributed::Data matProto;
+                Structure* temp_mat = nullptr;
 
-                // receive streamed data from transfer
-                auto reader=stub->Transfer(&grpc_ctx, protoData, &matProto);
-                reader->Read(&matProto);
+                auto reader = stub->Transfer(&grpc_ctx, protoData);
 
+                std::vector<std::pair<size_t, std::shared_ptr<std::vector<char>>>> receivedChunks;
 
-                auto buffer = matProto.bytes().data(); //pointer to the data (?)
-                auto len = matProto.bytes().size(); // size of the data in bytes
+                distributed::Data data;
+                while (reader->Read(&data)) {
+                    auto buffer = data.bytes().data();
+                    auto len = data.bytes().size();
 
-                auto denseMat = dynamic_cast<DenseMatrix<double>*>(mat);
-                if (!denseMat){
-                    throw std::runtime_error("Distribute grpc only supports DenseMatrix<double> for now");
-                }
-                    
-                // Handle single value case
-                if (DF_Dtype(buffer) == DF_data_t::Value_t) {
-                    std::vector<char> buf(static_cast<const char*>(buffer), static_cast<const char*>(buffer) + len); 
-                    auto slicedMat = dynamic_cast<DenseMatrix<double>*>(DF_deserialize(buf));
-                    auto resValues = denseMat->getValues() + (dp->range->r_start * denseMat->getRowSkip());
-                    auto slicedMatValues = slicedMat->getValues();
-                    for (size_t r = 0; r < dp->range->r_len; r++){
-                        memcpy(resValues + dp->range->c_start, slicedMatValues, dp->range->c_len * sizeof(double));
-                        resValues += denseMat->getRowSkip();                    
-                        slicedMatValues += slicedMat->getRowSkip();
-                    }               
-                    distributedData.isPlacedAtWorker = false;
-                    dynamic_cast<AllocationDescriptorGRPC&>(*(dp->allocation)).updateDistributedData(distributedData);
-                } else {  //handle chunks
-                    // Initialize deserializer for chunks
-                    deserializer.reset(new DaphneDeserializerChunks<Structure>(&mat, len));
-                    deserializerIter.reset(new DaphneDeserializerChunks<Structure>::Iterator(deserializer->begin()));
-                
-                
-                    // Store the chunks
-                    (*deserializerIter)->second->resize(len);
-                    (*deserializerIter)->first = len;
-                    
-                    if ((*deserializerIter)->second->size() < len)
-                        (*deserializerIter)->second->resize(len);
-                    (*deserializerIter)->second->assign(static_cast<const char*>(buffer), static_cast<const char*>(buffer) + len);
-                    
-                    // Advance the iterator, this partially deserializes
-                    ++(*deserializerIter);
+                    if (DF_Dtype(buffer) == DF_data_t::Value_t) {
+                        throw std::runtime_error("Invalid data type.");
+                    } else {
+                        if (temp_mat == nullptr) {
+                            // Replace 'Structure' constructor with your appropriate constructor parameters
+                            temp_mat = new Structure(distributedData.numRows, distributedData.numCols);
+                        }
 
-                    // Need changes for chunks
-                    // for (size_t r = 0; r < dp->range->r_len; r++){
-                    //     memcpy(resValues + dp->range->c_start, slicedMatValues, dp->range->c_len * sizeof(double));
-                    //     resValues += denseMat->getRowSkip();                    
-                    //     slicedMatValues += slicedMat->getRowSkip();
-                    // }               
-                    // distributedData.isPlacedAtWorker = false;
-                    // dynamic_cast<AllocationDescriptorGRPC&>(*(dp->allocation)).updateDistributedData(distributedData);
-                    
-                    while (reader->Read(&data)){
-                        (*deserializerIter)->first = len;
-                        if ((*deserializerIter)->second->size() < len)
-                            (*deserializerIter)->second->resize(len);
-                        (*deserializerIter)->second->assign(static_cast<const char*>(buffer), static_cast<const char*>(buffer) + len);
-                        
-                        // advance iterator, this also partially deserializes
-                        ++(*deserializerIter);
-
-                        // Need changes for chunks
-                        // for (size_t r = 0; r < dp->range->r_len; r++){
-                        //     memcpy(resValues + dp->range->c_start, slicedMatValues, dp->range->c_len * sizeof(double));
-                        //     resValues += denseMat->getRowSkip();                    
-                        //     slicedMatValues += slicedMat->getRowSkip();
-                        // }               
-                        // distributedData.isPlacedAtWorker = false;
-                        // dynamic_cast<AllocationDescriptorGRPC&>(*(dp->allocation)).updateDistributedData(distributedData);
-                        
+                        receivedChunks.emplace_back(len, std::make_shared<std::vector<char>>(buffer, buffer + len));
                     }
+                }
+
+                if (temp_mat != nullptr) {
+                    DaphneDeserializerChunks<Structure> deserializer(&temp_mat, temp_mat->getNumRows() * temp_mat->getNumCols());
+                    DaphneDeserializerChunks<Structure>::Iterator deserializerIter = deserializer.begin();
+
+                    for (const auto &chunk : receivedChunks) {
+                        (*deserializerIter)->second->resize(chunk.first);
+                        (*deserializerIter)->second->assign(chunk.second->begin(), chunk.second->end());
+
+                        // Advance iterator to deserialize partially
+                        ++deserializerIter;
+                    }
+
+                    mat->update(temp_mat);
+                    delete temp_mat;
                 }
             });
             threads_vector.push_back(std::move(t));
         }
+
         for (auto &thread : threads_vector)
             thread.join();
     };
 };
+
+
+
+//std::lock_guard<std::mutex> lock(mat->getMutex());
