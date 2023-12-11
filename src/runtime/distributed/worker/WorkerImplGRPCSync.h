@@ -47,7 +47,7 @@ public:
                          ::distributed::ComputeResult *response) override;
     grpc::Status Transfer(::grpc::ServerContext *context,
                           const ::distributed::StoredData *request,
-                         ::distributed::Data *response) override;
+                         ::grpc::ServerWriter< ::distributed::Data>* writer) override;
 
     template<class DT>
     DT* CreateMatrix(const ::distributed::Data *mat);
